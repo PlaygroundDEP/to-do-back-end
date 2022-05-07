@@ -8,6 +8,11 @@ public class UserDTO {
     public UserDTO() {
     }
 
+    public UserDTO(String name, String password) {
+        this.name = name;
+        this.password = password;
+    }
+
     public UserDTO(String email, String name, String password) {
         this.email = email;
         this.name = name;
