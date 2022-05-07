@@ -16,6 +16,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet(name = "UserServlet", value = "/users/*")
 public class UserServlet extends HttpServlet {
@@ -61,6 +63,60 @@ public class UserServlet extends HttpServlet {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (req.getPathInfo()!=null && !req.getPathInfo().equals("/")) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        String query = req.getParameter("q");
+        query = "%"+((query==null) ? "" : query)+"%";
+
+        try(Connection connection = pool.getConnection()){
+            boolean pagination = req.getParameter("page") !=null && req.getParameter("size")!=null;
+            String sql = "SELECT * FROM user WHERE email LIKE ? OR name LIKE ?"+((pagination) ? "LIMIT ? OFFSET ?":"");
+            PreparedStatement stm = connection.prepareStatement(sql);
+            PreparedStatement stmCount = connection.prepareStatement("SELECT count(*) FROM user WHERE email LIKE ? OR name LIKE ?");
+
+            stm.setString(1,query);
+            stm.setString(2,query);
+            stmCount.setString(1,query);
+            stmCount.setString(2,query);
+
+            if (pagination) {
+                int page = Integer.parseInt(req.getParameter("page"));
+                int size = Integer.parseInt(req.getParameter("size"));
+
+                stm.setInt(3, size);
+                stm.setInt(4, (page-1)*size);
+            }
+
+            ResultSet rst = stm.executeQuery();
+            List<UserDTO> users = new ArrayList<>();
+
+            while (rst.next()) {
+                users.add((new UserDTO(
+                        rst.getString("email"),
+                        rst.getString("name")
+                )));
+            }
+
+            resp.setContentType("application/json");
+            ResultSet rstCount = stmCount.executeQuery();
+            if (rstCount.next()) {
+                resp.setHeader("X-Count", rstCount.getString(1));
+            }
+
+            Jsonb jsonb = JsonbBuilder.create();
+            jsonb.toJson(users, resp.getWriter());
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 
