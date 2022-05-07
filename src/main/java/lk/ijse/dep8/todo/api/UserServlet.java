@@ -27,6 +27,11 @@ public class UserServlet extends HttpServlet {
         doSaveOrUpdate(req, resp);
     }
 
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        doSaveOrUpdate(req, resp);
+    }
+
     private void doSaveOrUpdate(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         if (req.getContentType()==null || !req.getContentType().toLowerCase().startsWith("application/json")) {
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -39,11 +44,19 @@ public class UserServlet extends HttpServlet {
         if (method.equals("POST") && (pathInfo!=null && !pathInfo.equals("/"))){
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
+        } else if (method.equals("PUT") && !(pathInfo != null &&
+                pathInfo.substring(1).matches("(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"))){
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND, "User does nt exist");
+            return;
         }
 
         try {
             Jsonb jsonb = JsonbBuilder.create();
             UserDTO user = jsonb.fromJson(req.getReader(), UserDTO.class);
+
+            if (method.equals("PUT")) {
+                user.setEmail(pathInfo.replaceAll("[/]", ""));
+            }
 
             if (method.equals("POST") && (user.getEmail() == null || !user.getEmail()
                     .matches("(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"))){
@@ -59,7 +72,18 @@ public class UserServlet extends HttpServlet {
                 stm.setString(1, user.getEmail());
 
                 if (stm.executeQuery().next()) {
-                    resp.sendError(HttpServletResponse.SC_CONFLICT, "There is already exists an account registered with this email address");
+                    if (method.equals("POST")){
+                        resp.sendError(HttpServletResponse.SC_CONFLICT, "There is already exists an account registered with this email address");
+                    } else{
+                        stm = connection.prepareStatement("UPDATE user SET name=?, password=? WHERE email=?");
+                        stm.setString(1, user.getName());
+                        stm.setString(2, user.getPassword());
+                        stm.setString(3, user.getEmail());
+                        if (stm.executeUpdate() != 1) {
+                            throw new RuntimeException("Failed to update the user information");
+                        }
+                        resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                    }
                 } else {
                     stm = connection.prepareStatement("INSERT INTO user (email, name, password) VALUES (?,?,?)");
                     stm.setString(1, user.getEmail());
