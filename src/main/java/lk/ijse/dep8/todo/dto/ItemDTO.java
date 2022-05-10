@@ -1,7 +1,7 @@
 package lk.ijse.dep8.todo.dto;
 
 public class ItemDTO {
-    private String id;
+    private int id;
     private String email;
     private String description;
     private String state;
@@ -15,7 +15,7 @@ public class ItemDTO {
         this.state = state;
     }
 
-    public ItemDTO(String id, String email, String description, String state) {
+    public ItemDTO(int id, String email, String description, String state) {
         this.id = id;
         this.email = email;
         this.description = description;
@@ -30,11 +30,11 @@ public class ItemDTO {
         this.state = state;
     }
 
-    public String getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(int id) {
         this.id = id;
     }
 
