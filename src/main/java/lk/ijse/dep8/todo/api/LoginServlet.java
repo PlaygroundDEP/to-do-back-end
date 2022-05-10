@@ -52,6 +52,8 @@ public class LoginServlet extends HttpServlet {
 
                 if (stm.executeQuery().next()) {
                     resp.setStatus(HttpServletResponse.SC_OK);
+                } else {
+                    resp.sendError(HttpServletResponse.SC_UNAUTHORIZED);
                 }
             }
         } catch (JsonbException e) {

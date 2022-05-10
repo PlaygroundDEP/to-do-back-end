@@ -1,6 +1,8 @@
 package lk.ijse.dep8.todo.dto;
 
-public class UserDTO {
+import java.io.Serializable;
+
+public class UserDTO implements Serializable {
     private String email;
     private String name;
     private String password;
@@ -8,8 +10,8 @@ public class UserDTO {
     public UserDTO() {
     }
 
-    public UserDTO(String name, String password) {
-        this.name = name;
+    public UserDTO(String email, String password) {
+        this.email = email;
         this.password = password;
     }
 
@@ -41,5 +43,14 @@ public class UserDTO {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    @Override
+    public String toString() {
+        return "UserDTO{" +
+                "email='" + email + '\'' +
+                ", name='" + name + '\'' +
+                ", password='" + password + '\'' +
+                '}';
     }
 }
