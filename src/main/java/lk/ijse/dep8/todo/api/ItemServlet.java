@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 @WebServlet(name = "ItemServlet", value = "/items/*")
 public class ItemServlet extends HttpServlet {
@@ -29,6 +30,37 @@ public class ItemServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         doSaveOrUpdate(req, resp);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (req.getPathInfo()==null || req.getPathInfo().equals("/")) {
+            resp.sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Unable to delete all the items");
+            return;
+        } else if (req.getPathInfo()!=null && !req.getPathInfo().substring(1).matches("[0-9]+")) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Item not found");
+            return;
+        }
+
+        int id = Integer.parseInt(req.getPathInfo().replaceAll("[/]", ""));
+
+        try(Connection connection = pool.getConnection()) {
+            PreparedStatement stm = connection.prepareStatement("SELECT * FROM item WHERE id=?");
+            stm.setInt(1, id);
+            ResultSet rst = stm.executeQuery();
+            if (rst.next()) {
+                stm = connection.prepareStatement("DELETE FROM item WHERE id=?");
+                stm.setInt(1, id);
+                if (stm.executeUpdate()!=1){
+                    throw new RuntimeException("Failed to delete the item");
+                }
+                resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+            } else {
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Item does not exist");
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
     private void doSaveOrUpdate(HttpServletRequest req, HttpServletResponse resp) throws IOException {
