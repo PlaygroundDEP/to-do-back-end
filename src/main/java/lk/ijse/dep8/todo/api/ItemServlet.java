@@ -4,6 +4,7 @@ import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbException;
 import lk.ijse.dep8.todo.dto.ItemDTO;
+import lk.ijse.dep8.todo.dto.UserDTO;
 import lk.ijse.dep8.todo.exception.ValidationException;
 
 import javax.annotation.Resource;
@@ -15,6 +16,9 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet(name = "ItemServlet", value = "/items/*")
 public class ItemServlet extends HttpServlet {
@@ -30,6 +34,62 @@ public class ItemServlet extends HttpServlet {
     @Override
     protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         doSaveOrUpdate(req, resp);
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        if (req.getPathInfo()!=null && !req.getPathInfo().equals("/")) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        String query = req.getParameter("q");
+        String email = req.getParameter("email");
+
+        try(Connection connection = pool.getConnection()){
+            boolean pagination = req.getParameter("page") !=null && req.getParameter("size")!=null;
+            String sql = "SELECT * FROM item WHERE state=? AND user_email=?" + ((pagination) ? "LIMIT ? OFFSET ?":"");
+            PreparedStatement stm = connection.prepareStatement(sql);
+            PreparedStatement stmCount = connection.prepareStatement("SELECT count(*) FROM item WHERE state=? AND user_email=?");
+
+            stm.setString(1,query);
+            stm.setString(2,email);
+            stmCount.setString(1,query);
+            stmCount.setString(2,email);
+
+            if (pagination) {
+                int page = Integer.parseInt(req.getParameter("page"));
+                int size = Integer.parseInt(req.getParameter("size"));
+
+                stm.setInt(3, size);
+                stm.setInt(4, (page-1)*size);
+            }
+
+            ResultSet rst = stm.executeQuery();
+            List<ItemDTO> items = new ArrayList<>();
+
+            while (rst.next()) {
+                items.add((new ItemDTO(
+                        rst.getInt("id"),
+                        rst.getString("user_email"),
+                        rst.getString("description"),
+                        rst.getString("state")
+                )));
+            }
+
+            resp.setContentType("application/json");
+            ResultSet rstCount = stmCount.executeQuery();
+            if (rstCount.next()) {
+                resp.setHeader("X-Count", rstCount.getString(1));
+            }
+
+            Jsonb jsonb = JsonbBuilder.create();
+            jsonb.toJson(items, resp.getWriter());
+
+        } catch (Throwable e) {
+            e.printStackTrace();
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Override
