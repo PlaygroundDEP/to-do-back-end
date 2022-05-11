@@ -163,7 +163,7 @@ public class ItemServlet extends HttpServlet {
                 stm.setString(1, item.getEmail());
 
                 if (!stm.executeQuery().next()) {
-                    resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid Email");
+                    resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "User does not exist");
                     return;
                 } else {
                     if (method.equals("POST")) {
